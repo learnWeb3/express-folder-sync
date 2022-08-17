@@ -17,9 +17,9 @@ const filesRouteDefaultOptions = {
 };
 
 const statusRouteDefaultOptions = {
-  name: 'status',
-  middlewares: []
-}
+  name: "status",
+  middlewares: [],
+};
 
 class FolderSyncRouterMaster {
   constructor(
@@ -30,11 +30,11 @@ class FolderSyncRouterMaster {
       ...filesRouteDefaultOptions,
     },
     statusRoute = {
-      ...statusRouteDefaultOptions
+      ...statusRouteDefaultOptions,
     },
-    syncedFolderDirectoryPath = join(cwd(), "public")
+    syncedDirPath = join(cwd(), "public")
   ) {
-    this.syncedFolderDirectoryPath = syncedFolderDirectoryPath;
+    this.syncedDirPath = syncedDirPath;
     this.diffRoute = {
       ...diffRouteDefaultOptions,
       ...diffRoute,
@@ -45,8 +45,8 @@ class FolderSyncRouterMaster {
     };
     this.statusRoute = {
       ...statusRoute,
-      ...statusRouteDefaultOptions
-    }
+      ...statusRouteDefaultOptions,
+    };
     this.router = Router();
     this._init();
     return this.router;
@@ -61,9 +61,9 @@ class FolderSyncRouterMaster {
             name: this.diffRoute.name,
           },
           files: {
-            name: this.filesRoute.name
-          }
-        }
+            name: this.filesRoute.name,
+          },
+        },
       });
     });
 
@@ -77,9 +77,7 @@ class FolderSyncRouterMaster {
         const {
           body: { syncDirContentTree },
         } = req;
-        const FOLDER_SYNC_SERVICE = new FolderSyncService(
-          this.syncedFolderDirectoryPath
-        );
+        const FOLDER_SYNC_SERVICE = new FolderSyncService(this.syncedDirPath);
         const masterSyncDirContentTree =
           await FOLDER_SYNC_SERVICE.getHashedMapTree();
         //return res.json(masterSyncDirContentTree);
@@ -108,13 +106,10 @@ class FolderSyncRouterMaster {
         const {
           body: { upsertTree },
         } = req;
-        const SYNCED_FOLDER_DIRECTORY_PATH = this.syncedFolderDirectoryPath;
-        const FOLDER_SYNC_SERVICE = new FolderSyncService(
-          SYNCED_FOLDER_DIRECTORY_PATH
-        );
+        const FOLDER_SYNC_SERVICE = new FolderSyncService(this.syncedDirPath);
         const filesPaths = FOLDER_SYNC_SERVICE.extractUniqueFilesPaths(
           upsertTree,
-          SYNCED_FOLDER_DIRECTORY_PATH
+          this.syncedDirPath
         );
         const zipBuffer = FOLDER_SYNC_SERVICE.zipFiles(filesPaths);
         const zipArchiveName = "master_sync_files";
