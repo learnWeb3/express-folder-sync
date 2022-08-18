@@ -1,13 +1,20 @@
-const { BadRequestError } = require("../errors");
+import { BadRequestError } from "../errors/http.errors";
 
-function requireBodyParams(requiredBodyParamsMap = {}) {
+interface RequiredBodyParamsMap {
+  [key: string]: boolean;
+}
+
+interface ValidationMap {
+  [key: string]: Function;
+}
+
+export function requireBodyParams(
+  requiredBodyParamsMap: RequiredBodyParamsMap = {}
+) {
   const errors = [];
   return function (req, res, next) {
     for (const key in requiredBodyParamsMap) {
-      if (
-        req.body[key] === undefined ||
-        req.body[key] === null
-      ) {
+      if (req.body[key] === undefined || req.body[key] === null) {
         errors.push(`body param ${key} is required`);
       }
     }
@@ -19,7 +26,7 @@ function requireBodyParams(requiredBodyParamsMap = {}) {
   };
 }
 
-function validateBodyParams(bodyKeyToValidatorMap = {}) {
+export function validateBodyParams(bodyKeyToValidatorMap: ValidationMap = {}) {
   const errors = [];
   return function (req, res, next) {
     for (const key in req.body) {
@@ -42,5 +49,3 @@ function validateBodyParams(bodyKeyToValidatorMap = {}) {
     }
   };
 }
-
-module.exports = { requireBodyParams, validateBodyParams };

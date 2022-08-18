@@ -1,12 +1,4 @@
-/**
- *
- * @param {*} err
- * @param {*} req
- * @param {*} res
- * @param {*} next
- * @returns
- */
-function errorHandler(err, req, res, next) {
+export function errorHandler(err, req, res, next) {
   if (err?.constructor?.name) {
     const errorType = err.constructor.name;
     console.log(errorType);
@@ -79,4 +71,3 @@ function errorHandler(err, req, res, next) {
   }
 }
 
-module.exports = { errorHandler };

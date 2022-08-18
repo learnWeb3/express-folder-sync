@@ -1,11 +1,13 @@
-const fs = require("fs");
-const { join } = require("path");
-const { cwd } = require("process");
-const express = require("express");
+import fs from "fs";
+import { join } from "path";
+import { cwd } from "process";
+import express from "express";
+import axios, { Axios } from "axios";
+import { FolderSyncService } from "../services/folder-sync.service";
+import { remove } from "fs-extra";
+import { errorHandler } from "../middlewares/errors-handler.middleware";
+
 const { Router } = express;
-const axios = require("axios");
-const FolderSyncService = require("../services/folder-sync.service");
-const { remove } = require("fs-extra");
 
 const syncRouteDefaultOptions = {
   name: "sync",
@@ -16,9 +18,43 @@ const forwardedHeadersKeysMapDefaultOptions = {
   Authorization: true,
 };
 
-class FolderSyncRouterSlave {
+interface HeadersKeysMap {
+  [key: string]: boolean;
+}
+
+interface ApiRoute {
+  name: string;
+  middlewares?: any[];
+}
+
+interface MasterServerOptions {
+  baseURL: string;
+  httpRequestTimeout: number;
+  httpRequestHeaders: Object;
+  routerPrefix: string;
+  diffRoute: ApiRoute;
+  filesRoute: ApiRoute;
+  statusRoute: ApiRoute;
+  check: boolean;
+}
+
+export class FolderSyncRouterSlave {
+  public masterServerOptions: MasterServerOptions;
+  public httpService: Axios;
+  public httpRequestHeaders: Object;
+  public forwardedHeadersKeysMap: HeadersKeysMap;
+  public syncRoute: ApiRoute;
+  public routerPrefix: string;
+  public diffRoute: ApiRoute;
+  public filesRoute: ApiRoute;
+  public statusRoute: ApiRoute;
+  public tempDirPath: string;
+  public syncedDirPath: string;
+  public cleanTempDir: boolean;
+  public router: any;
+
   constructor(
-    masterServerOptions = {
+    masterServerOptions: MasterServerOptions = {
       baseURL: "http://localhost:9000",
       httpRequestTimeout: 5000,
       httpRequestHeaders: {},
@@ -34,15 +70,15 @@ class FolderSyncRouterSlave {
       },
       check: true,
     },
-    syncedDirPath = join(cwd(), "public"),
-    tempDirPath = join(cwd(), "temp"),
-    syncRoute = {
+    syncedDirPath: string = join(cwd(), "public"),
+    tempDirPath: string = join(cwd(), "temp"),
+    syncRoute: ApiRoute = {
       ...syncRouteDefaultOptions,
     },
-    forwardedHeadersKeysMap = {
+    forwardedHeadersKeysMap: HeadersKeysMap = {
       ...forwardedHeadersKeysMapDefaultOptions,
     },
-    cleanTempDir = true
+    cleanTempDir: boolean = true
   ) {
     const {
       baseURL,
@@ -72,6 +108,7 @@ class FolderSyncRouterSlave {
     this.syncedDirPath = syncedDirPath;
     this.cleanTempDir = cleanTempDir;
     this.router = new Router();
+    this.router.use(errorHandler);
     this._warnings();
     this._checkPathExists(this.tempDirPath);
     this._checkPathExists(this.syncedDirPath);
@@ -82,7 +119,7 @@ class FolderSyncRouterSlave {
     return this.router;
   }
 
-  getEndpoint(
+  private _getEndpoint(
     route = {
       name: "diff",
     }
@@ -90,10 +127,10 @@ class FolderSyncRouterSlave {
     return this.routerPrefix + "/" + route.name;
   }
 
-  async _checkMaster() {
+  private async _checkMaster() {
     console.log("[folder-sync]: checking master status...");
     const masterStatusResponse = await this.httpService
-      .get(this.getEndpoint(this.statusRoute), {
+      .get(this._getEndpoint(this.statusRoute), {
         headers: {
           "Content-type": "application/json",
         },
@@ -126,7 +163,7 @@ class FolderSyncRouterSlave {
     console.log("[folder-sync]: master/slave endpoint do match.");
   }
 
-  _checkPathExists(path) {
+  private _checkPathExists(path) {
     if (!fs.existsSync(path)) {
       throw new Error(
         `[folder-sync]: ${path} does not exists on the server, this option has been configured in class constructor`
@@ -134,7 +171,7 @@ class FolderSyncRouterSlave {
     }
   }
 
-  _warnings() {
+  private _warnings() {
     if (this.syncRoute.middlewares.length) {
       console.log(
         "[folder-sync]: Warning: middlewares will be applied in the order of the array, (middlewares order always matter!)"
@@ -147,7 +184,7 @@ class FolderSyncRouterSlave {
     }
   }
 
-  _extractForwardedHeaders(requestHeaders) {
+  private _extractForwardedHeaders(requestHeaders) {
     const forwardedHeaders = {};
     for (const key in requestHeaders) {
       if (this.forwardedHeadersKeysMap[key]) {
@@ -157,7 +194,7 @@ class FolderSyncRouterSlave {
     return forwardedHeaders;
   }
 
-  _init() {
+  private _init() {
     this.router.post(
       `/${this.syncRoute.name}`,
       ...this.syncRoute.middlewares,
@@ -172,7 +209,7 @@ class FolderSyncRouterSlave {
 
         // ASKING SERVER THE DATA TO BE DELETED AND THE DATA TO BE UPSERTED (DIFF VS MASTER)
         const diffMasterResponse = await this.httpService.post(
-          this.getEndpoint(this.diffRoute),
+          this._getEndpoint(this.diffRoute),
           {
             syncDirContentTree,
           },
@@ -182,7 +219,7 @@ class FolderSyncRouterSlave {
               ...forwardedHeaders,
               ...this.httpRequestHeaders,
               "Content-type": "application/json",
-            },
+            } as any,
           }
         );
 
@@ -193,7 +230,7 @@ class FolderSyncRouterSlave {
 
         // REQUESTING ACTUAL FILES TO BE UPSERTED (binary data)
         const filesMasterResponse = await this.httpService.post(
-          this.getEndpoint(this.filesRoute),
+          this._getEndpoint(this.filesRoute),
           {
             upsertTree,
           },
@@ -204,7 +241,7 @@ class FolderSyncRouterSlave {
               ...forwardedHeaders,
               ...this.httpRequestHeaders,
               "Content-type": "application/json",
-            },
+            } as any,
           }
         );
 
@@ -235,5 +272,3 @@ class FolderSyncRouterSlave {
     );
   }
 }
-
-module.exports = FolderSyncRouterSlave;

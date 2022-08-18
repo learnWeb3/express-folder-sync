@@ -1,36 +1,58 @@
-const { hashElement } = require("folder-hash");
-const AdmZip = require("adm-zip");
-const {
+import { hashElement } from "folder-hash";
+import AdmZip from "adm-zip";
+import {
   existsSync,
   ensureDir,
   readdirSync,
   remove,
   emptyDirSync,
-  move,
   copy,
-} = require("fs-extra");
-const { join } = require("path");
-const { readFile, readFileSync, fstat } = require("fs");
+} from "fs-extra";
+import { join } from "path";
+import { readFileSync } from "fs";
 
 class FolderSyncServiceHashingContentFailedError extends Error {
-  constructor(message) {
+  constructor(message: string) {
     super(message);
   }
 }
 
 class FolderSyncServiceZipFileNotFoundError extends Error {
-  constructor(message) {
+  constructor(message: string) {
     super(message);
   }
 }
 
-module.exports = class FolderSyncService {
-  constructor(path) {
+interface ZipContent {
+  folderName: string;
+  folderPath: string;
+  files: string[];
+}
+
+interface HashFileMap {
+  [key: string]: boolean;
+}
+
+interface Tree {
+  children?: Tree[];
+  name?: string;
+  hash?: string;
+}
+
+interface FilePath {
+  path: string;
+  hash: string;
+}
+
+export class FolderSyncService {
+  public path: string;
+  public hashMapTree: any;
+  constructor(path: string) {
     this.path = path;
     this.hashMapTree = {};
   }
 
-  async getHashedMapTree() {
+  async getHashedMapTree(): Promise<Tree> {
     const options = {
       algo: "sha1", // see crypto.getHashes() for options in your node.js REPL
       encoding: "hex", // 'base64', 'hex' or 'binary' // avoid slashes by using hexadecimal encoding of hashes and not defautl base64
@@ -65,7 +87,7 @@ module.exports = class FolderSyncService {
     }
   ]
   */
-  zipFiles(filesPaths = []) {
+  zipFiles(filesPaths: FilePath[] = []): Buffer {
     const errors = [];
     // creating archives
     const zip = new AdmZip();
@@ -88,16 +110,16 @@ module.exports = class FolderSyncService {
   }
 
   async upsertFiles(
-    upsertTree,
-    syncedFolderDirectoryPath,
-    fileTempDirectoryPath,
-    tempFilesNames = []
-  ) {
+    upsertTree: Tree,
+    syncedFolderDirectoryPath: string,
+    fileTempDirectoryPath: string,
+    tempFilesNames: string[] = []
+  ): Promise<void> {
     const upsertFilesRecursively = async (
-      upsertTree,
-      syncedFolderDirectoryPath,
-      fileTempDirectoryPath,
-      tempFilesNames
+      upsertTree: Tree,
+      syncedFolderDirectoryPath: string,
+      fileTempDirectoryPath: string,
+      tempFilesNames: string[]
     ) => {
       for (let index = 0; index < upsertTree.children.length; index++) {
         const child = upsertTree.children[index];
@@ -142,10 +164,13 @@ module.exports = class FolderSyncService {
     );
   }
 
-  async deleteFiles(syncedFolderDirectoryPath, deleteTree) {
+  async deleteFiles(
+    syncedFolderDirectoryPath: string,
+    deleteTree: Tree
+  ): Promise<void> {
     const deleteFileRecursively = async (
-      syncedFolderDirectoryPath,
-      deleteTree
+      syncedFolderDirectoryPath: string,
+      deleteTree: Tree
     ) => {
       for (let index = 0; index < deleteTree.children.length; index++) {
         const child = deleteTree.children[index];
@@ -164,9 +189,12 @@ module.exports = class FolderSyncService {
     await deleteFileRecursively(syncedFolderDirectoryPath, deleteTree);
   }
 
-  async unzipFilesToFolderDestination(dataBuffer, tempDirectoryPath) {
-    const tempDataDirName = `temp_${Date.now()}`;
-    const tempDataDirPath = join(tempDirectoryPath, tempDataDirName);
+  async unzipFilesToFolderDestination(
+    dataBuffer: ArrayBuffer,
+    tempDirectoryPath: string
+  ): Promise<ZipContent> {
+    const tempDataDirName: string = `temp_${Date.now()}`;
+    const tempDataDirPath: string = join(tempDirectoryPath, tempDataDirName);
     const zip = new AdmZip(dataBuffer);
     await ensureDir(tempDataDirPath);
     zip.extractAllTo(tempDataDirPath, true);
@@ -180,11 +208,11 @@ module.exports = class FolderSyncService {
 
   // unique files based on their hash to prevent sneding multiple times the same file
   extractUniqueFilesPaths(
-    tree,
-    rootPath,
-    filesPathsObjects = [],
-    mappingHashFiles = {}
-  ) {
+    tree: Tree,
+    rootPath: string,
+    filesPathsObjects: FilePath[] = [],
+    mappingHashFiles: HashFileMap = {}
+  ): FilePath[] {
     const self = this;
     for (const child of tree.children) {
       if (child.children) {
@@ -220,14 +248,14 @@ module.exports = class FolderSyncService {
   }
 
   getDiffTree(
-    masterFilesHashMap,
-    filesHashMap,
-    diff = {
+    masterFilesHashMap: Tree,
+    filesHashMap: Tree,
+    diff: Tree = {
       name: null,
       children: [],
     },
     rootFolder = this.path
-  ) {
+  ): Tree {
     const self = this;
     if (masterFilesHashMap.hash !== filesHashMap.hash) {
       diff.name = masterFilesHashMap.name;
@@ -278,4 +306,4 @@ module.exports = class FolderSyncService {
     }
     return diff;
   }
-};
+}

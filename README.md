@@ -49,6 +49,12 @@ app.use("/api", new FolderSyncRouterMaster(
     },
     syncedDirPath = join(cwd(), "public") // directory to be synced (source of truth - the content of this directory will be copied to the slave(s) syncedDirPath dirtectorie(s)) 
 ));
+
+app.listen(9000, 'localhost', () =>
+  console.log(
+    `master running at http://localhost:9000`
+  )
+);
 ```
 
 ### Slave
@@ -93,6 +99,12 @@ app.use(
       Authorization: true, // allowing for example to pass an authorization headers content for authentication/authorization purposes
     },
    cleanTempDir = true // cleaning temp directory after having merged the content to the syncronized folder
+  )
+);
+
+app.listen(3000, 'localhost', () =>
+  console.log(
+    `slave running at http://localhost:3000`
   )
 );
 ```

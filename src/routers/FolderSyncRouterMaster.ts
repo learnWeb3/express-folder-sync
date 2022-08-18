@@ -1,38 +1,50 @@
-const fs = require("fs");
-const { join } = require("path");
-const { cwd } = require("process");
-const express = require("express");
-const { Router } = express;
-const { requireBodyParams } = require("../middlewares/body-params.middlewraes");
-const FolderSyncService = require("../services/folder-sync.service");
+import { join } from "path";
+import { cwd } from "process";
+import express from "express";
+import { requireBodyParams } from "../middlewares/body-params.middlewraes";
+import { FolderSyncService } from "../services/folder-sync.service";
+import { errorHandler } from '../middlewares/errors-handler.middleware';
 
-const diffRouteDefaultOptions = {
+const { Router } = express;
+
+const diffRouteDefaultOptions: ApiRoute = {
   name: "diff",
   middlewares: [],
 };
 
-const filesRouteDefaultOptions = {
+const filesRouteDefaultOptions: ApiRoute = {
   name: "files",
   middlewares: [],
 };
 
-const statusRouteDefaultOptions = {
+const statusRouteDefaultOptions: ApiRoute = {
   name: "status",
   middlewares: [],
 };
 
-class FolderSyncRouterMaster {
+interface ApiRoute {
+  name: string;
+  middlewares?: any[];
+}
+
+export class FolderSyncRouterMaster {
+  public syncedDirPath: string;
+  public diffRoute: ApiRoute;
+  public filesRoute: ApiRoute;
+  public statusRoute: ApiRoute;
+  public router: any;
+
   constructor(
-    diffRoute = {
+    diffRoute: ApiRoute = {
       ...diffRouteDefaultOptions,
     },
-    filesRoute = {
+    filesRoute: ApiRoute = {
       ...filesRouteDefaultOptions,
     },
-    statusRoute = {
+    statusRoute: ApiRoute = {
       ...statusRouteDefaultOptions,
     },
-    syncedDirPath = join(cwd(), "public")
+    syncedDirPath: string = join(cwd(), "public")
   ) {
     this.syncedDirPath = syncedDirPath;
     this.diffRoute = {
@@ -48,11 +60,12 @@ class FolderSyncRouterMaster {
       ...statusRouteDefaultOptions,
     };
     this.router = Router();
+    this.router.use(errorHandler)
     this._init();
     return this.router;
   }
 
-  _init() {
+  private _init() {
     this.router.get(`/${this.statusRoute.name}`, async (req, res) => {
       return res.status(200).json({
         message: "master server alive",
@@ -123,5 +136,3 @@ class FolderSyncRouterMaster {
     );
   }
 }
-
-module.exports = FolderSyncRouterMaster;
