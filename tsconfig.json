@@ -3,7 +3,7 @@
     "module": "commonjs",
     "removeComments": true,
     "sourceMap": true,
-    "target": "es5",
+    "target": "ES2015",
     "outDir": "build",
     "esModuleInterop": true,
     "declaration": true,

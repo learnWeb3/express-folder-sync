@@ -5,7 +5,8 @@ import express from "express";
 import axios, { Axios } from "axios";
 import { FolderSyncService } from "../services/folder-sync.service";
 import { remove } from "fs-extra";
-import { errorHandler } from "../middlewares/errors-handler.middleware";
+import { handleError } from "../helpers/errors.helper";
+import { InternalServerError } from "../errors/http.errors";
 
 const { Router } = express;
 
@@ -23,18 +24,48 @@ interface HeadersKeysMap {
 }
 
 interface ApiRoute {
+  /**
+   * name of the endpoint
+   */
   name: string;
+  /**
+   * middlewares to be applied to the request before processing
+   */
   middlewares?: any[];
 }
 
 interface MasterServerOptions {
+  /**
+   * server implementing FolderSyncMaster class base URL ex : http://localhost:9000
+   */
   baseURL: string;
+  /**
+   * timeout for the underlying requests sent to the server implementing FolderSyncMaster class
+   */
   httpRequestTimeout: number;
+  /**
+   * extra headers to be added to the underlying requests sent to the server implementing FolderSyncMaster class
+   */
   httpRequestHeaders: Object;
+  /**
+   * router prefix used on the server implementing FolderSyncMaster class (app.use(prefix, FolderSyncMaster))
+   */
   routerPrefix: string;
+  /**
+   * Object containing a name property representing the route/endpoint to call on the FolderSyncMaster class to ask for the difference of content between folders
+   */
   diffRoute: ApiRoute;
+  /**
+   * Object containing a name property representing the route/endpoint to call on the FolderSyncMaster class to ask for the files (binary) data updated or missing on the slave
+   */
   filesRoute: ApiRoute;
+  /**
+   * Object containing a name property representing the route/endpoint to call on the FoldeSyncMaster class to ask for the status (online/offline) and configuration check of the server implementing the FolderSyncMaster class
+   */
   statusRoute: ApiRoute;
+  /**
+   * *Boolean representing whether to perform the HTTP api call to check status and configurations of the server implementing the FolderSyncMaster class
+   */
   check: boolean;
 }
 
@@ -53,6 +84,20 @@ export class FolderSyncRouterSlave {
   public cleanTempDir: boolean;
   public router: any;
 
+  /**
+   * @param masterServerOptions
+   * Object representing the settings for the slave to be able to communicate with the master server
+   * @param syncedDirPath
+   * String representing the path to the directory to be synced
+   * @param tempDirPath
+   * String representing the path to a temp directory on the server (to store zip files before merging them into the synchronized directory)
+   * @param syncRoute
+   * Object with name and middlewares property representing the route/endpoint to be triggered in order to perform a synchronization of the files on the slave.
+   * @param forwardedHeadersKeysMap
+   * Mapping object containing the headers keys name to be forwarded with the underlying request to the folder sync master API server.
+   * @param cleanTempDir
+   * Boolean representing whether to clean the temp directory after having performed a merge operation (aka sync is complete)
+   **/
   constructor(
     masterServerOptions: MasterServerOptions = {
       baseURL: "http://localhost:9000",
@@ -108,7 +153,6 @@ export class FolderSyncRouterSlave {
     this.syncedDirPath = syncedDirPath;
     this.cleanTempDir = cleanTempDir;
     this.router = new Router();
-    this.router.use(errorHandler);
     this._warnings();
     this._checkPathExists(this.tempDirPath);
     this._checkPathExists(this.syncedDirPath);
@@ -198,7 +242,7 @@ export class FolderSyncRouterSlave {
     this.router.post(
       `/${this.syncRoute.name}`,
       ...this.syncRoute.middlewares,
-      async (req, res) => {
+      async (req, res, next) => {
         // request headers are forwarded when calling master (used for authorization purpose for exaample)
         const forwardedHeaders = this._extractForwardedHeaders(req.headers);
 
@@ -208,66 +252,73 @@ export class FolderSyncRouterSlave {
         const syncDirContentTree = await FOLDER_SYNC_SERVICE.getHashedMapTree();
 
         // ASKING SERVER THE DATA TO BE DELETED AND THE DATA TO BE UPSERTED (DIFF VS MASTER)
-        const diffMasterResponse = await this.httpService.post(
-          this._getEndpoint(this.diffRoute),
-          {
-            syncDirContentTree,
-          },
-          {
-            // Warning: headers forwarded from request and headers set in global options could overlap
-            headers: {
-              ...forwardedHeaders,
-              ...this.httpRequestHeaders,
-              "Content-type": "application/json",
-            } as any,
-          }
-        );
-
-        // SERVER RESPONDING WITH TWO TREES (DATA TO BE INSERTED/UPDATED aka upsert tree AND DATA TO BE DELETED aka delete tree)
-        const {
-          data: { upsertTree, deleteTree },
-        } = diffMasterResponse;
-
-        // REQUESTING ACTUAL FILES TO BE UPSERTED (binary data)
-        const filesMasterResponse = await this.httpService.post(
-          this._getEndpoint(this.filesRoute),
-          {
-            upsertTree,
-          },
-          {
-            // Warning: headers forwarded from request and headers set in global options could overlap
-            responseType: "arraybuffer",
-            headers: {
-              ...forwardedHeaders,
-              ...this.httpRequestHeaders,
-              "Content-type": "application/json",
-            } as any,
-          }
-        );
-
-        // EXTRACTING FILES TO A TEMP LOCATION ON THE SLAVE SERVER
-        const { folderPath: fileTempDirectoryPath, files: tempFilesNames } =
-          await FOLDER_SYNC_SERVICE.unzipFilesToFolderDestination(
-            filesMasterResponse.data,
-            this.tempDirPath
+        try {
+          const diffMasterResponse = await this.httpService.post(
+            this._getEndpoint(this.diffRoute),
+            {
+              syncDirContentTree,
+            },
+            {
+              // Warning: headers forwarded from request and headers set in global options could overlap
+              headers: {
+                ...forwardedHeaders,
+                ...this.httpRequestHeaders,
+                "Content-type": "application/json",
+              } as any,
+            }
           );
 
-        // DELETING CNTENT IN SYNCED DIRECTORY
-        await FOLDER_SYNC_SERVICE.deleteFiles(this.syncedDirPath, deleteTree);
+          // SERVER RESPONDING WITH TWO TREES (DATA TO BE INSERTED/UPDATED aka upsert tree AND DATA TO BE DELETED aka delete tree)
+          const {
+            data: { upsertTree, deleteTree },
+          } = diffMasterResponse;
 
-        // // UPDATING/INSERTING CONTENT IN SYNCED DIRECTORY
-        await FOLDER_SYNC_SERVICE.upsertFiles(
-          upsertTree,
-          this.syncedDirPath,
-          fileTempDirectoryPath,
-          tempFilesNames
-        );
+          // REQUESTING ACTUAL FILES TO BE UPSERTED (binary data)
+          const filesMasterResponse = await this.httpService.post(
+            this._getEndpoint(this.filesRoute),
+            {
+              upsertTree,
+            },
+            {
+              // Warning: headers forwarded from request and headers set in global options could overlap
+              responseType: "arraybuffer",
+              headers: {
+                ...forwardedHeaders,
+                ...this.httpRequestHeaders,
+                "Content-type": "application/json",
+              } as any,
+            }
+          );
+          // EXTRACTING FILES TO A TEMP LOCATION ON THE SLAVE SERVER
+          const { folderPath: fileTempDirectoryPath, files: tempFilesNames } =
+            await FOLDER_SYNC_SERVICE.unzipFilesToFolderDestination(
+              filesMasterResponse.data,
+              this.tempDirPath
+            );
 
-        this.cleanTempDir && (await remove(fileTempDirectoryPath));
+          // DELETING CNTENT IN SYNCED DIRECTORY
+          await FOLDER_SYNC_SERVICE.deleteFiles(this.syncedDirPath, deleteTree);
 
-        res.status(200).json({
-          message: `${this.syncedDirPath} synced successfully using master as source of truth`,
-        });
+          // // UPDATING/INSERTING CONTENT IN SYNCED DIRECTORY
+          await FOLDER_SYNC_SERVICE.upsertFiles(
+            upsertTree,
+            this.syncedDirPath,
+            fileTempDirectoryPath,
+            tempFilesNames
+          );
+
+          this.cleanTempDir && (await remove(fileTempDirectoryPath));
+
+          res.status(200).json({
+            message: `${this.syncedDirPath} synced successfully using master as source of truth`,
+          });
+        } catch (error) {
+          handleError(
+            new InternalServerError("unexpected error encountred"),
+            req,
+            res
+          );
+        }
       }
     );
   }

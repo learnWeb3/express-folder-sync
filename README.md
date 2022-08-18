@@ -1,6 +1,5 @@
 # FOLDER-SYNC
 
-This package is a commonjs package.
 This package allow you to synchronize folders across remote servers (master and slaves).
 This package exports two express js routers FolderSyncRouterMaster and FolderSyncRouterSlave containing necessary logic to perform sync tasks.
 
@@ -31,7 +30,7 @@ In order to use the default options you must ensure that :
 
 ```js
 const express = require("express");
-const { FolderSyncRouterMaster } = require("folder-sync/master");
+const { FolderSyncRouterMaster } = require("folder-sync/build/master");
 const app = express();
 app.use(express.json());
 app.use("/api", new FolderSyncRouterMaster(
@@ -67,7 +66,7 @@ In order to use the default options you must ensure that :
 
 ```js
 const express = require("express");
-const { FolderSyncRouterSlave } = require("folder-sync/slave");
+const { FolderSyncRouterSlave } = require("folder-sync/build/slave");
 const app = express();
 app.use(express.json());
 app.use(

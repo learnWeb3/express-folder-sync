@@ -3,7 +3,8 @@ import { cwd } from "process";
 import express from "express";
 import { requireBodyParams } from "../middlewares/body-params.middlewraes";
 import { FolderSyncService } from "../services/folder-sync.service";
-import { errorHandler } from '../middlewares/errors-handler.middleware';
+import { handleError } from "../helpers/errors.helper";
+import { InternalServerError } from "../errors/http.errors";
 
 const { Router } = express;
 
@@ -34,6 +35,16 @@ export class FolderSyncRouterMaster {
   public statusRoute: ApiRoute;
   public router: any;
 
+  /**
+   * @param diffRoute
+   * Object with name and middlewares property representing the route/endpoint retrieving the content diff based upon data (tree) sent by the slave.
+   * @param filesRoute
+   * Object with name and middlewares property representing the route/endpoint sending zip archive containing updated and new files based on the data (tree) sent by the slave.
+   * @param statusRoute
+   * Object with name and middlewares property representing the route/endpoint sending server status and performing a check of configuration between slave and master
+   * @param syncedDirPath
+   * String representing the path to the directory to be synced
+   **/
   constructor(
     diffRoute: ApiRoute = {
       ...diffRouteDefaultOptions,
@@ -60,7 +71,6 @@ export class FolderSyncRouterMaster {
       ...statusRouteDefaultOptions,
     };
     this.router = Router();
-    this.router.use(errorHandler)
     this._init();
     return this.router;
   }
@@ -87,25 +97,33 @@ export class FolderSyncRouterMaster {
       }),
       ...this.diffRoute.middlewares,
       async (req, res) => {
-        const {
-          body: { syncDirContentTree },
-        } = req;
-        const FOLDER_SYNC_SERVICE = new FolderSyncService(this.syncedDirPath);
-        const masterSyncDirContentTree =
-          await FOLDER_SYNC_SERVICE.getHashedMapTree();
-        //return res.json(masterSyncDirContentTree);
-        const upsertTree = FOLDER_SYNC_SERVICE.getDiffTree(
-          masterSyncDirContentTree,
-          syncDirContentTree
-        );
-        const deleteTree = FOLDER_SYNC_SERVICE.getDiffTree(
-          syncDirContentTree,
-          masterSyncDirContentTree
-        );
-        return res.status(200).json({
-          upsertTree,
-          deleteTree,
-        });
+        try {
+          const {
+            body: { syncDirContentTree },
+          } = req;
+          const FOLDER_SYNC_SERVICE = new FolderSyncService(this.syncedDirPath);
+          const masterSyncDirContentTree =
+            await FOLDER_SYNC_SERVICE.getHashedMapTree();
+          //return res.json(masterSyncDirContentTree);
+          const upsertTree = FOLDER_SYNC_SERVICE.getDiffTree(
+            masterSyncDirContentTree,
+            syncDirContentTree
+          );
+          const deleteTree = FOLDER_SYNC_SERVICE.getDiffTree(
+            syncDirContentTree,
+            masterSyncDirContentTree
+          );
+          return res.status(200).json({
+            upsertTree,
+            deleteTree,
+          });
+        } catch (error) {
+          handleError(
+            new InternalServerError("unexpected error encountred"),
+            req,
+            res
+          );
+        }
       }
     );
 
@@ -116,22 +134,30 @@ export class FolderSyncRouterMaster {
       }),
       ...this.filesRoute.middlewares,
       async (req, res) => {
-        const {
-          body: { upsertTree },
-        } = req;
-        const FOLDER_SYNC_SERVICE = new FolderSyncService(this.syncedDirPath);
-        const filesPaths = FOLDER_SYNC_SERVICE.extractUniqueFilesPaths(
-          upsertTree,
-          this.syncedDirPath
-        );
-        const zipBuffer = FOLDER_SYNC_SERVICE.zipFiles(filesPaths);
-        const zipArchiveName = "master_sync_files";
-        res.status(200);
-        res.set({
-          "Content-Disposition": `attachment; filename=${zipArchiveName}`,
-          "Content-type": "application/zip",
-        });
-        return res.send(zipBuffer);
+        try {
+          const {
+            body: { upsertTree },
+          } = req;
+          const FOLDER_SYNC_SERVICE = new FolderSyncService(this.syncedDirPath);
+          const filesPaths = FOLDER_SYNC_SERVICE.extractUniqueFilesPaths(
+            upsertTree,
+            this.syncedDirPath
+          );
+          const zipBuffer = FOLDER_SYNC_SERVICE.zipFiles(filesPaths);
+          const zipArchiveName = "master_sync_files";
+          res.status(200);
+          res.set({
+            "Content-Disposition": `attachment; filename=${zipArchiveName}`,
+            "Content-type": "application/zip",
+          });
+          return res.send(zipBuffer);
+        } catch (error) {
+          handleError(
+            new InternalServerError("unexpected error encountred"),
+            req,
+            res
+          );
+        }
       }
     );
   }

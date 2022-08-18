@@ -1,4 +1,5 @@
 import { BadRequestError } from "../errors/http.errors";
+import { handleError } from "../helpers/errors.helper";
 
 interface RequiredBodyParamsMap {
   [key: string]: boolean;
@@ -19,7 +20,7 @@ export function requireBodyParams(
       }
     }
     if (errors.length) {
-      next(new BadRequestError(errors.join(", ")));
+      handleError(new BadRequestError(errors.join(", ")), req, res);
     } else {
       next();
     }
@@ -42,7 +43,7 @@ export function validateBodyParams(bodyKeyToValidatorMap: ValidationMap = {}) {
         }
       }
       if (errors.length) {
-        next(new BadRequestError(errors.join(", ")));
+        handleError(new BadRequestError(errors.join(", ")), req, res);
       } else {
         next();
       }

@@ -2,11 +2,13 @@
   "name": "folder-sync",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "types": "",
   "exports": {
-    ".": "./master.js",
-    "./master": "./build/master.js",
-    "./slave": "./build/slave.js"
+    ".": "./build/master.js",
+    "./build/master.d.ts": "./build/master.d.ts",
+    "./build/slave.d.ts": "./build/slave.d.ts",
+    "./build/master": "./build/master.js",
+    "./build/slave": "./build/slave.js"
   },
   "scripts": {
     "build": "rimraf ./build && tsc"
