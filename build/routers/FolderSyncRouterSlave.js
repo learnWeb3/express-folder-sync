@@ -171,8 +171,11 @@ class FolderSyncRouterSlave {
                 yield FOLDER_SYNC_SERVICE.upsertFiles(upsertTree, this.syncedDirPath, fileTempDirectoryPath, tempFilesNames);
                 this.cleanTempDir && (yield (0, fs_extra_1.remove)(fileTempDirectoryPath));
                 res.status(200).json({
-                    message: `${this.syncedDirPath} synced successfully using master as source of truth`,
+                    statusCode: 200,
+                    datetimeMs: Date.now(),
+                    message: "synced with success",
                 });
+                return;
             }
             catch (error) {
                 (0, errors_helper_1.handleError)(new http_errors_1.InternalServerError("unexpected error encountred"), req, res);

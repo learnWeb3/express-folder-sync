@@ -117,6 +117,15 @@ app.listen(3000, 'localhost', () =>
 );
 ```
 
+```json
+// slave's sync endpoint sample success response
+{
+  "statusCode": 200,
+  "datetimeMs": 1661066907603, // Date.now()
+  "message": "synced with success",
+}
+```
+
 
 ## Dependencies 
 

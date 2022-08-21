@@ -2,6 +2,12 @@ import { Axios } from "axios";
 interface HeadersKeysMap {
     [key: string]: boolean;
 }
+/**
+ * @param req
+ * express request object
+ * @param res
+ * express response object
+ */
 interface ApiRoute {
     /**
      * name of the endpoint

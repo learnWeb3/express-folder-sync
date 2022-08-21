@@ -23,6 +23,13 @@ interface HeadersKeysMap {
   [key: string]: boolean;
 }
 
+/**
+ * @param req
+ * express request object
+ * @param res
+ * express response object
+ */
+
 interface ApiRoute {
   /**
    * name of the endpoint
@@ -186,7 +193,9 @@ export class FolderSyncRouterSlave {
         );
       });
     console.log("[express-folder-sync]: master alive.");
-    console.log("[express-folder-sync]: checking master/slave endpoint match...");
+    console.log(
+      "[express-folder-sync]: checking master/slave endpoint match..."
+    );
     const {
       data: {
         endpoints: { diff, files },
@@ -310,8 +319,12 @@ export class FolderSyncRouterSlave {
           this.cleanTempDir && (await remove(fileTempDirectoryPath));
 
           res.status(200).json({
-            message: `${this.syncedDirPath} synced successfully using master as source of truth`,
+            statusCode: 200,
+            datetimeMs: Date.now(),
+            message: "synced with success",
           });
+          return;
+          
         } catch (error) {
           handleError(
             new InternalServerError("unexpected error encountred"),
