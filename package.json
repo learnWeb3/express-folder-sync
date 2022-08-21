@@ -1,6 +1,6 @@
 {
   "name": "express-folder-sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sync folders across network using express js",
   "repository": {
     "type": "git",
