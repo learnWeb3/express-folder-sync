@@ -7,6 +7,7 @@ Sync task is optimized so that an heavy media already synced over the network wo
 
 Caluculation of the difference of contents is made leveraging hashing techniques in order to detect updates. (Hash map tree reprepresentation of synced folders diffing is done before compressing a zip archive containing the actual ressource to be sent over the network).
 
+[see express-folder-sync on npmjs](https://www.npmjs.com/package/express-folder-sync)
 
 ## How does it works
 
