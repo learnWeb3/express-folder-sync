@@ -7,15 +7,19 @@ Sync task is optimized so that an heavy media already synced over the network wo
 
 Caluculation of the difference of contents is made leveraging hashing techniques in order to detect updates. (Hash map tree reprepresentation of synced folders diffing is done before compressing a zip archive containing the actual ressource to be sent over the network).
 
+
 ## How does it works
 
-Folders are being synced over two subsequent HTTP calls performed from the slave endpoint (sync)
+Folders are being synced over two subsequent HTTP calls performed from the slave endpoint (sync) to master API.
+
 1- ask the difference of content SLAVE (syncedDirPath) vs MASTER (syncedDirPath)
 2- using the response of the first call (upsertTree and deleteTree objects) ask for the updated and new data (binary data) and place it into the syncedDirPath folder using the upsertTree and delete old data using the deleteTree 
 
 Trees are builded using the hash of the files in order to optimize the HTTP calls and data usage.
 
-The sync operation is not automatic or based on a timer. You have to perform an initial HTTP call to the SLAVE syncRoute endpoint in order to trigger an update.
+## Warning 
+
+The sync operation is not automatically triggered or based on a timer. You have to perform an initial HTTP call to the SLAVE syncRoute endpoint in order to trigger an update.
 
 ## Quick start
 
