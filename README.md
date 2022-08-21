@@ -1,7 +1,11 @@
-# FOLDER-SYNC
+# EXPRESS-FOLDER-SYNC
 
 This package allow you to synchronize folders across remote servers (master and slaves).
 This package exports two express js routers FolderSyncRouterMaster and FolderSyncRouterSlave containing necessary logic to perform sync tasks.
+
+Sync task is optimized so that an heavy media already synced over the network wont be sent again optimizing time and network bandwidth.
+
+Caluculation of the difference of contents is made leveraging hashing techniques in order to detect updates. (Hash map tree reprepresentation of synced folders diffing is done before compressing a zip archive containing the actual ressource to be sent over the network).
 
 ## How does it works
 
@@ -18,7 +22,7 @@ The sync operation is not automatic or based on a timer. You have to perform an 
 Install the package in your project
 
 ```bash
-npm i folder-sync
+npm i express-folder-sync
 ```
 
 ### Master server (source of truth)
@@ -30,7 +34,7 @@ In order to use the default options you must ensure that :
 
 ```js
 const express = require("express");
-const { FolderSyncRouterMaster } = require("folder-sync/build/master");
+const { FolderSyncRouterMaster } = require("express-folder-sync/build/master");
 const app = express();
 app.use(express.json());
 app.use("/api", new FolderSyncRouterMaster(
@@ -66,7 +70,7 @@ In order to use the default options you must ensure that :
 
 ```js
 const express = require("express");
-const { FolderSyncRouterSlave } = require("folder-sync/build/slave");
+const { FolderSyncRouterSlave } = require("express-folder-sync/build/slave");
 const app = express();
 app.use(express.json());
 app.use(

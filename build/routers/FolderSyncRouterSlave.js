@@ -31,6 +31,20 @@ const forwardedHeadersKeysMapDefaultOptions = {
     Authorization: true,
 };
 class FolderSyncRouterSlave {
+    /**
+     * @param masterServerOptions
+     * Object representing the settings for the slave to be able to communicate with the master server
+     * @param syncedDirPath
+     * String representing the path to the directory to be synced
+     * @param tempDirPath
+     * String representing the path to a temp directory on the server (to store zip files before merging them into the synchronized directory)
+     * @param syncRoute
+     * Object with name and middlewares property representing the route/endpoint to be triggered in order to perform a synchronization of the files on the slave.
+     * @param forwardedHeadersKeysMap
+     * Mapping object containing the headers keys name to be forwarded with the underlying request to the folder sync master API server.
+     * @param cleanTempDir
+     * Boolean representing whether to clean the temp directory after having performed a merge operation (aka sync is complete)
+     **/
     constructor(masterServerOptions = {
         baseURL: "http://localhost:9000",
         httpRequestTimeout: 5000,
@@ -79,7 +93,7 @@ class FolderSyncRouterSlave {
     }
     _checkMaster() {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log("[folder-sync]: checking master status...");
+            console.log("[express-folder-sync]: checking master status...");
             const masterStatusResponse = yield this.httpService
                 .get(this._getEndpoint(this.statusRoute), {
                 headers: {
@@ -88,31 +102,31 @@ class FolderSyncRouterSlave {
             })
                 .catch((error) => {
                 console.log(error);
-                throw new Error(`[folder-sync]: master server is offline or master server options are invalid, this option has been configured in class constructor`);
+                throw new Error(`[express-folder-sync]: master server is offline or master server options are invalid, this option has been configured in class constructor`);
             });
-            console.log("[folder-sync]: master alive.");
-            console.log("[folder-sync]: checking master/slave endpoint match...");
+            console.log("[express-folder-sync]: master alive.");
+            console.log("[express-folder-sync]: checking master/slave endpoint match...");
             const { data: { endpoints: { diff, files }, }, } = masterStatusResponse;
             if (diff.name !== this.diffRoute.name) {
-                throw new Error("[folder-sync]: master/slave route mismatch for diff endpoint, this option has been configured in class constructor");
+                throw new Error("[express-folder-sync]: master/slave route mismatch for diff endpoint, this option has been configured in class constructor");
             }
             if (files.name !== this.filesRoute.name) {
-                throw new Error("[folder-sync]: master/slave route mismatch for files download endpoint, this option has been configured in class constructor");
+                throw new Error("[express-folder-sync]: master/slave route mismatch for files download endpoint, this option has been configured in class constructor");
             }
-            console.log("[folder-sync]: master/slave endpoint do match.");
+            console.log("[express-folder-sync]: master/slave endpoint do match.");
         });
     }
     _checkPathExists(path) {
         if (!fs_1.default.existsSync(path)) {
-            throw new Error(`[folder-sync]: ${path} does not exists on the server, this option has been configured in class constructor`);
+            throw new Error(`[express-folder-sync]: ${path} does not exists on the server, this option has been configured in class constructor`);
         }
     }
     _warnings() {
         if (this.syncRoute.middlewares.length) {
-            console.log("[folder-sync]: Warning: middlewares will be applied in the order of the array, (middlewares order always matter!)");
+            console.log("[express-folder-sync]: Warning: middlewares will be applied in the order of the array, (middlewares order always matter!)");
         }
         if (Object.values(this.httpRequestHeaders).length) {
-            console.log("[folder-sync]: Warning: headers forwarded from request and headers set in global options could overlap");
+            console.log("[express-folder-sync]: Warning: headers forwarded from request and headers set in global options could overlap");
         }
     }
     _extractForwardedHeaders(requestHeaders) {
@@ -126,24 +140,34 @@ class FolderSyncRouterSlave {
     }
     _init() {
         this.router.post(`/${this.syncRoute.name}`, ...this.syncRoute.middlewares, (req, res, next) => __awaiter(this, void 0, void 0, function* () {
+            // request headers are forwarded when calling master (used for authorization purpose for exaample)
             const forwardedHeaders = this._extractForwardedHeaders(req.headers);
             const FOLDER_SYNC_SERVICE = new folder_sync_service_1.FolderSyncService(this.syncedDirPath);
+            // GETTING CONTENT OF SLAVE SYNCED FOLDER
             const syncDirContentTree = yield FOLDER_SYNC_SERVICE.getHashedMapTree();
+            // ASKING SERVER THE DATA TO BE DELETED AND THE DATA TO BE UPSERTED (DIFF VS MASTER)
             try {
                 const diffMasterResponse = yield this.httpService.post(this._getEndpoint(this.diffRoute), {
                     syncDirContentTree,
                 }, {
+                    // Warning: headers forwarded from request and headers set in global options could overlap
                     headers: Object.assign(Object.assign(Object.assign({}, forwardedHeaders), this.httpRequestHeaders), { "Content-type": "application/json" }),
                 });
+                // SERVER RESPONDING WITH TWO TREES (DATA TO BE INSERTED/UPDATED aka upsert tree AND DATA TO BE DELETED aka delete tree)
                 const { data: { upsertTree, deleteTree }, } = diffMasterResponse;
+                // REQUESTING ACTUAL FILES TO BE UPSERTED (binary data)
                 const filesMasterResponse = yield this.httpService.post(this._getEndpoint(this.filesRoute), {
                     upsertTree,
                 }, {
+                    // Warning: headers forwarded from request and headers set in global options could overlap
                     responseType: "arraybuffer",
                     headers: Object.assign(Object.assign(Object.assign({}, forwardedHeaders), this.httpRequestHeaders), { "Content-type": "application/json" }),
                 });
+                // EXTRACTING FILES TO A TEMP LOCATION ON THE SLAVE SERVER
                 const { folderPath: fileTempDirectoryPath, files: tempFilesNames } = yield FOLDER_SYNC_SERVICE.unzipFilesToFolderDestination(filesMasterResponse.data, this.tempDirPath);
+                // DELETING CNTENT IN SYNCED DIRECTORY
                 yield FOLDER_SYNC_SERVICE.deleteFiles(this.syncedDirPath, deleteTree);
+                // // UPDATING/INSERTING CONTENT IN SYNCED DIRECTORY
                 yield FOLDER_SYNC_SERVICE.upsertFiles(upsertTree, this.syncedDirPath, fileTempDirectoryPath, tempFilesNames);
                 this.cleanTempDir && (yield (0, fs_extra_1.remove)(fileTempDirectoryPath));
                 res.status(200).json({

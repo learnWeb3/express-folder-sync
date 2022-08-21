@@ -34,6 +34,16 @@ const statusRouteDefaultOptions = {
     middlewares: [],
 };
 class FolderSyncRouterMaster {
+    /**
+     * @param diffRoute
+     * Object with name and middlewares property representing the route/endpoint retrieving the content diff based upon data (tree) sent by the slave.
+     * @param filesRoute
+     * Object with name and middlewares property representing the route/endpoint sending zip archive containing updated and new files based on the data (tree) sent by the slave.
+     * @param statusRoute
+     * Object with name and middlewares property representing the route/endpoint sending server status and performing a check of configuration between slave and master
+     * @param syncedDirPath
+     * String representing the path to the directory to be synced
+     **/
     constructor(diffRoute = Object.assign({}, diffRouteDefaultOptions), filesRoute = Object.assign({}, filesRouteDefaultOptions), statusRoute = Object.assign({}, statusRouteDefaultOptions), syncedDirPath = (0, path_1.join)((0, process_1.cwd)(), "public")) {
         this.syncedDirPath = syncedDirPath;
         this.diffRoute = Object.assign(Object.assign({}, diffRouteDefaultOptions), diffRoute);
@@ -64,6 +74,7 @@ class FolderSyncRouterMaster {
                 const { body: { syncDirContentTree }, } = req;
                 const FOLDER_SYNC_SERVICE = new folder_sync_service_1.FolderSyncService(this.syncedDirPath);
                 const masterSyncDirContentTree = yield FOLDER_SYNC_SERVICE.getHashedMapTree();
+                //return res.json(masterSyncDirContentTree);
                 const upsertTree = FOLDER_SYNC_SERVICE.getDiffTree(masterSyncDirContentTree, syncDirContentTree);
                 const deleteTree = FOLDER_SYNC_SERVICE.getDiffTree(syncDirContentTree, masterSyncDirContentTree);
                 return res.status(200).json({

@@ -59,8 +59,16 @@ class FolderSyncService {
             });
         });
     }
+    /* filesPaths = [
+      {
+        path: string,
+        hash: string
+      }
+    ]
+    */
     zipFiles(filesPaths = []) {
         const errors = [];
+        // creating archives
         const zip = new adm_zip_1.default();
         for (const { path, hash } of filesPaths) {
             if ((0, fs_extra_1.existsSync)(path)) {
@@ -76,6 +84,7 @@ class FolderSyncService {
         if (errors.length) {
             throw new FolderSyncServiceZipFileNotFoundError(errors.join(", "));
         }
+        // get everything as a buffer
         const buffer = zip.toBuffer();
         return buffer;
     }
@@ -142,6 +151,7 @@ class FolderSyncService {
             };
         });
     }
+    // unique files based on their hash to prevent sneding multiple times the same file
     extractUniqueFilesPaths(tree, rootPath, filesPathsObjects = [], mappingHashFiles = {}) {
         const self = this;
         for (const child of tree.children) {

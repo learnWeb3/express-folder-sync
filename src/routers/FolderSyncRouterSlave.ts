@@ -172,7 +172,7 @@ export class FolderSyncRouterSlave {
   }
 
   private async _checkMaster() {
-    console.log("[folder-sync]: checking master status...");
+    console.log("[express-folder-sync]: checking master status...");
     const masterStatusResponse = await this.httpService
       .get(this._getEndpoint(this.statusRoute), {
         headers: {
@@ -182,11 +182,11 @@ export class FolderSyncRouterSlave {
       .catch((error) => {
         console.log(error);
         throw new Error(
-          `[folder-sync]: master server is offline or master server options are invalid, this option has been configured in class constructor`
+          `[express-folder-sync]: master server is offline or master server options are invalid, this option has been configured in class constructor`
         );
       });
-    console.log("[folder-sync]: master alive.");
-    console.log("[folder-sync]: checking master/slave endpoint match...");
+    console.log("[express-folder-sync]: master alive.");
+    console.log("[express-folder-sync]: checking master/slave endpoint match...");
     const {
       data: {
         endpoints: { diff, files },
@@ -195,22 +195,22 @@ export class FolderSyncRouterSlave {
 
     if (diff.name !== this.diffRoute.name) {
       throw new Error(
-        "[folder-sync]: master/slave route mismatch for diff endpoint, this option has been configured in class constructor"
+        "[express-folder-sync]: master/slave route mismatch for diff endpoint, this option has been configured in class constructor"
       );
     }
 
     if (files.name !== this.filesRoute.name) {
       throw new Error(
-        "[folder-sync]: master/slave route mismatch for files download endpoint, this option has been configured in class constructor"
+        "[express-folder-sync]: master/slave route mismatch for files download endpoint, this option has been configured in class constructor"
       );
     }
-    console.log("[folder-sync]: master/slave endpoint do match.");
+    console.log("[express-folder-sync]: master/slave endpoint do match.");
   }
 
   private _checkPathExists(path) {
     if (!fs.existsSync(path)) {
       throw new Error(
-        `[folder-sync]: ${path} does not exists on the server, this option has been configured in class constructor`
+        `[express-folder-sync]: ${path} does not exists on the server, this option has been configured in class constructor`
       );
     }
   }
@@ -218,12 +218,12 @@ export class FolderSyncRouterSlave {
   private _warnings() {
     if (this.syncRoute.middlewares.length) {
       console.log(
-        "[folder-sync]: Warning: middlewares will be applied in the order of the array, (middlewares order always matter!)"
+        "[express-folder-sync]: Warning: middlewares will be applied in the order of the array, (middlewares order always matter!)"
       );
     }
     if (Object.values(this.httpRequestHeaders).length) {
       console.log(
-        "[folder-sync]: Warning: headers forwarded from request and headers set in global options could overlap"
+        "[express-folder-sync]: Warning: headers forwarded from request and headers set in global options could overlap"
       );
     }
   }
