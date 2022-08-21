@@ -119,8 +119,8 @@ app.listen(3000, 'localhost', () =>
 
 ## Dependencies 
 
-[adm-zip](https://github.com/cthackers/adm-zip)
-[axios](https://github.com/axios/axios)
-[express](https://github.com/expressjs/express)
-[folder-hash](https://github.com/marc136/node-folder-hash)
-[fs-extra](https://github.com/jprichardson/node-fs-extra)
+- [adm-zip](https://github.com/cthackers/adm-zip)
+- [axios](https://github.com/axios/axios)
+- [express](https://github.com/expressjs/express)
+- [folder-hash](https://github.com/marc136/node-folder-hash)
+- [fs-extra](https://github.com/jprichardson/node-fs-extra)
