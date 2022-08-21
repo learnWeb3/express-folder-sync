@@ -1,7 +1,11 @@
 {
   "name": "express-folder-sync",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sync folders across network using express js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/learnWeb3/express-folder-sync"
+  },
   "types": "",
   "exports": {
     ".": "./build/master.js",
@@ -13,8 +17,12 @@
   "scripts": {
     "build": "rimraf ./build && tsc"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "sync",
+    "folder",
+    "express"
+  ],
+  "author": "learnWeb3 (https://github.com/learnWeb3)",
   "license": "ISC",
   "dependencies": {
     "adm-zip": "^0.5.9",
